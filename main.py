@@ -82,7 +82,7 @@ def set_metadata(filepath: str, metadata: dict = None):
     audio.save()
 
 
-def download_sound(url, filename=None, output=None):
+def download_sound(url, filename=None, output=None, metadata=None):
     yt = YouTube(url)
 
     try:
@@ -90,11 +90,14 @@ def download_sound(url, filename=None, output=None):
     except VideoUnavailable:
         print(f"Error downloading [{filename or url}], video unavailable")
         return
+    output = output or ""
     output = SAVE_DIR + output
     filename = filename or sound.default_filename
     if sound:
         print(f'Downloading {filename} ')
         filepath = sound.download(output_path=output, filename=filename)
+        if metadata:
+            set_metadata(filepath, metadata=metadata)
         return filepath
     return
 
@@ -111,17 +114,31 @@ def main(url):
             "artist": t["Artist"],
             "album": mix_title,
         }
-        filepath = download_sound(video_url, filename=filename, output=mix_title)
+        filepath = download_sound(
+            video_url, filename=filename, output=mix_title, metadata=metadata
+        )
+        t.update({
+            "metadata": metadata,
+            "filepath": filepath,
+            "error": False,
+        })
         if not filepath:
-            print(f"No sound for {filename}")
+            t["error"] = True
             continue
-        set_metadata(filepath, metadata=metadata)
+
+    with open(f"{SAVE_DIR}/{mix_title}/download_report.json","w") as f:
+        json.dump(track, f, indent=4)
 
 
 if __name__ == "__main__":
     if "--url" in sys.argv:
+        md_keys = ["title", "artist", "album"]
+        md = {}
+        for k in md_keys:
+            if f"--{k}" in sys.argv:
+                md[k] = sys.argv[sys.argv.index(f"--{k}") + 1]
         dl_url = sys.argv[sys.argv.index("--url") + 1]
-        download_sound(dl_url)
+        download_sound(dl_url, metadata=md)
         exit()
 
     if "--mix" in sys.argv:
