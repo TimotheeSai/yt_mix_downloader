@@ -62,7 +62,7 @@ def generate_tracklist(url):
     return data, yt.title
 
 
-def set_metadata(filepath: str, metadata: dict = None):
+def set_metadata(filepath: str, metadata: dict = None, youtube_url:str = None):
     '''
     metadata: dict(
         title,
@@ -79,6 +79,8 @@ def set_metadata(filepath: str, metadata: dict = None):
     }
     for k, v in metadata.items():
         audio[itunes_md_keys_converter[k]] = v
+    if youtube_url:
+        audio["youtubeUrl"] = youtube_url
     audio.save()
 
 
@@ -97,7 +99,7 @@ def download_sound(url, filename=None, output=None, metadata=None):
         print(f'Downloading {filename} ')
         filepath = sound.download(output_path=output, filename=filename)
         if metadata:
-            set_metadata(filepath, metadata=metadata)
+            set_metadata(filepath, metadata=metadata, youtube_url=url)
         return filepath
     return
 
