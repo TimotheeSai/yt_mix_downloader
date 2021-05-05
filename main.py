@@ -1,7 +1,8 @@
 #!./yt/bin/python
 
 from pprint import pprint
-from pytube import YouTube, request
+from pytube import YouTube
+from pytube.exceptions import VideoUnavailable
 from mutagen.mp4 import MP4
 # from bs4 import BeautifulSoup
 import json
@@ -25,7 +26,8 @@ def get_id_from_row(row):
     title = runs.get("text")
     try:
         video_id = get_nested(runs, ("navigationEndpoint", "watchEndpoint", "videoId"))
-        video_url = get_nested(runs, ("navigationEndpoint", "commandMetadata","webCommandMetadata",  "url"))
+        video_url = get_nested(
+            runs, ("navigationEndpoint", "commandMetadata", "webCommandMetadata", "url"))
     except (KeyError, AttributeError):
         return
     return title, video_id, video_url
@@ -33,10 +35,12 @@ def get_id_from_row(row):
 
 def get_mix_tracks_ids(url):
     yt = YouTube(url)
-    contents_keys = ("contents", "twoColumnWatchNextResults", "results", "results", "contents")
+    contents_keys = ("contents", "twoColumnWatchNextResults",
+                     "results", "results", "contents")
     contents = get_nested(yt.initial_data, contents_keys)
 
-    videoSecondaryInfoRenderer = [i for i in contents if "videoSecondaryInfoRenderer" in i.keys()][0]["videoSecondaryInfoRenderer"]
+    videoSecondaryInfoRenderer = [
+        i for i in contents if "videoSecondaryInfoRenderer" in i.keys()][0]["videoSecondaryInfoRenderer"]
 
     rows = videoSecondaryInfoRenderer["metadataRowContainer"]['metadataRowContainerRenderer']["rows"]
     rows = [get_id_from_row(r) for r in rows]
@@ -73,7 +77,7 @@ def set_metadata(filepath: str, metadata: dict = None):
         "artist": "\xa9ART",
         "album": "\xa9alb",
     }
-    for k,v in metadata.items():
+    for k, v in metadata.items():
         audio[itunes_md_keys_converter[k]] = v
     audio.save()
 
@@ -81,14 +85,18 @@ def set_metadata(filepath: str, metadata: dict = None):
 def download_sound(url, filename=None, output=None):
     yt = YouTube(url)
 
-    sound = yt.streams.get_audio_only()
+    try:
+        sound = yt.streams.get_audio_only()
+    except VideoUnavailable:
+        print(f"Error downloading [{filename or url}], video unavailable")
+        return
     output = SAVE_DIR + output
     filename = filename or sound.default_filename
     if sound:
         print(f'Downloading {filename} ')
         filepath = sound.download(output_path=output, filename=filename)
         return filepath
-    return 
+    return
 
 
 def main(url):
@@ -98,7 +106,7 @@ def main(url):
         video_url = BASE_YOUTUBE_URL + t["id"]
         filename = f"{t['Artist']} -- {t['Song']}"
         # filename = filename.replace('"', '').replace("'", '')
-        metadata={
+        metadata = {
             "title": t["Song"],
             "artist": t["Artist"],
             "album": mix_title,
@@ -112,10 +120,15 @@ def main(url):
 
 if __name__ == "__main__":
     if "--url" in sys.argv:
-        url = sys.argv[sys.argv.index("--url") + 1]
-    else:   
-        url = input('Enter mix url\n')
-    main(url)
+        dl_url = sys.argv[sys.argv.index("--url") + 1]
+        download_sound(dl_url)
+        exit()
+
+    if "--mix" in sys.argv:
+        mix_url = sys.argv[sys.argv.index("--mix") + 1]
+    else:
+        mix_url = input('Enter mix url\n')
+    main(mix_url)
 
 """
     "contents": {
